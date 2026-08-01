@@ -174,7 +174,19 @@ const BG_FADE_MS = 420;   // the no-direction path, which only cross-fades the r
 // as Việt Nam's orange. Synced to each palette's mid stop (the tone that
 // "carries the identity" per the comment above) so Safari's chrome tracks
 // whichever country is on screen.
+//
+// The meta tag itself can't transition — a browser snaps it the instant
+// `content` changes, it never eases like the body's custom properties do.
+// Writing it at the same moment the tween *starts* made the toolbar jump to
+// the destination colour while the on-screen gradient was still mid-ease,
+// so the chrome visibly led the slide instead of matching it. Delaying the
+// write by `ms` lands it exactly when the CSS transition finishes, so the
+// jump — unavoidable either way — happens after the eye has already settled
+// on the new scene rather than ahead of it. The pending timer is tracked so
+// a second switch fired mid-transition (rapid taps on the nav buttons)
+// cancels the stale write instead of letting it land after the newer one.
 const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+let themeColorTimer = null;
 
 function paintBackground(palette, ms, easing = 'cubic-bezier(.32,0,.22,1)') {
   const s = document.body.style;
@@ -184,7 +196,12 @@ function paintBackground(palette, ms, easing = 'cubic-bezier(.32,0,.22,1)') {
   s.setProperty('--bg-core', palette.core);
   s.setProperty('--bg-mid', palette.mid);
   s.setProperty('--bg-edge', palette.edge);
-  if (themeColorMeta) themeColorMeta.setAttribute('content', palette.mid);
+  if (themeColorMeta) {
+    clearTimeout(themeColorTimer);
+    const apply = () => themeColorMeta.setAttribute('content', palette.mid);
+    if (ms > 0) themeColorTimer = setTimeout(apply, ms);
+    else apply();
+  }
 }
 
 // Cache-buster for the roof PNGs. Unlike style.css and script.js these are
