@@ -171,22 +171,41 @@ const BG_FADE_MS = 420;   // the no-direction path, which only cross-fades the r
 // outside the document and can't pick up the body's gradient. Left at a fixed
 // value it was a flat #ffa100 that matched none of the five palettes below —
 // on Hy Lạp's blue or Pháp's lavender scene the top of the screen still read
-// as Việt Nam's orange. Synced to each palette's mid stop (the tone that
-// "carries the identity" per the comment above) so Safari's chrome tracks
-// whichever country is on screen.
+// as Việt Nam's orange.
 //
-// The meta tag itself can't transition — a browser snaps it the instant
+// The meta tag itself cannot transition — a browser snaps it the instant
 // `content` changes, it never eases like the body's custom properties do.
-// Writing it at the same moment the tween *starts* made the toolbar jump to
-// the destination colour while the on-screen gradient was still mid-ease,
-// so the chrome visibly led the slide instead of matching it. Delaying the
-// write by `ms` lands it exactly when the CSS transition finishes, so the
-// jump — unavoidable either way — happens after the eye has already settled
-// on the new scene rather than ahead of it. The pending timer is tracked so
-// a second switch fired mid-transition (rapid taps on the nav buttons)
-// cancels the stale write instead of letting it land after the newer one.
+// Two single-shot strategies were tried and both read as broken: writing it
+// when the tween *starts* snapped the toolbar to the destination hue while
+// the on-screen gradient was still mid-ease (chrome leads the page); writing
+// it when the tween *ends* left the toolbar showing the outgoing colour for
+// the entire 700-1500ms the page was visibly animating away from it (chrome
+// lags the page) — which is what read as "nền đổi trước, thanh trên đổi sau."
+// Neither one-shot moment can win, because the mismatch exists at every
+// instant in between, not just at the boundary.
+// So instead of picking a moment, this samples --bg-mid on every animation
+// frame while a transition is in flight. `--bg-mid` is a registered
+// `@property` (see above), which is exactly what makes getComputedStyle
+// return the browser's own live-interpolated value rather than the
+// unanimated end target — so each write is still a discrete snap, but the
+// steps are one frame apart and track the actual eased curve, which reads
+// as smooth motion instead of a jump.
 const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-let themeColorTimer = null;
+let themeColorRAF = null;
+
+function trackThemeColor(durationMs) {
+  if (!themeColorMeta) return;
+  cancelAnimationFrame(themeColorRAF);
+  // A little past the CSS duration so the final frame reliably lands on the
+  // settled value rather than stopping one tick short of it.
+  const deadline = performance.now() + durationMs + 80;
+  const tick = (now) => {
+    const mid = getComputedStyle(document.body).getPropertyValue('--bg-mid').trim();
+    if (mid) themeColorMeta.setAttribute('content', mid);
+    themeColorRAF = now < deadline ? requestAnimationFrame(tick) : null;
+  };
+  themeColorRAF = requestAnimationFrame(tick);
+}
 
 function paintBackground(palette, ms, easing = 'cubic-bezier(.32,0,.22,1)') {
   const s = document.body.style;
@@ -196,12 +215,8 @@ function paintBackground(palette, ms, easing = 'cubic-bezier(.32,0,.22,1)') {
   s.setProperty('--bg-core', palette.core);
   s.setProperty('--bg-mid', palette.mid);
   s.setProperty('--bg-edge', palette.edge);
-  if (themeColorMeta) {
-    clearTimeout(themeColorTimer);
-    const apply = () => themeColorMeta.setAttribute('content', palette.mid);
-    if (ms > 0) themeColorTimer = setTimeout(apply, ms);
-    else apply();
-  }
+  if (ms > 0) trackThemeColor(ms);
+  else if (themeColorMeta) themeColorMeta.setAttribute('content', palette.mid);
 }
 
 // Cache-buster for the roof PNGs. Unlike style.css and script.js these are
