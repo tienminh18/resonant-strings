@@ -1,0 +1,689 @@
+/* ─── Self-hosted fonts ───
+   Previously an @import from Google Fonts. Two problems with that here, both of
+   which actually bit:
+
+   1. The cloth is not HTML text — script.js rasterises every glyph into a canvas
+      atlas exactly once per build. If the webfont is absent at that instant the
+      fallback is baked in for the whole session, silently. And the fallback on a
+      stock Windows install is Courier New, which has no coverage of
+      U+1EA0–U+1EF9 — precisely where Vietnamese keeps ấ ữ ộ ế ầ ợ. So a CDN that
+      is merely slow, blocked, or momentarily commented out did not degrade the
+      page gracefully; it shredded the Vietnamese.
+   2. @import is render-blocking and adds a second round trip before the font
+      request even starts.
+
+   Subsets are pared to what the five passages actually use: latin, latin-ext,
+   vietnamese and (for the Greek declaration) greek. Cyrillic is dropped. 197 KB
+   total, and the page now works with no network at all.
+
+   To re-generate after changing a passage's script: fetch
+   fonts.googleapis.com/css2 with a desktop UA, keep the woff2 for the needed
+   subsets, and copy their unicode-range verbatim. */
+/* Source Code Pro (Adobe, Paul D. Hunt). Chosen over the alternatives on two
+   counts, one hard and one aesthetic:
+
+   Hard — it is one of only three monospace families on Google Fonts carrying
+   BOTH a `vietnamese` and a `greek` subset, which this page needs for the Hà Nội
+   and Epidaurus passages. IBM Plex Mono and Geist Mono read better still but
+   ship no Greek at all, and Fira Mono / Red Hat Mono / Martian Mono have no
+   Vietnamese. Checked, not assumed.
+
+   Aesthetic — its diacritics are drawn cleanly and sit evenly at 15px, where
+   JetBrains Mono's quirkier forms got noisy and Roboto/Noto Mono read flat.
+
+   Verified across all 91 distinct characters in the five passages: 0 missing,
+   0 falling through to a system face. */
+@font-face {
+  font-family: "Source Code Pro";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/source-code-pro-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Code Pro";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/source-code-pro-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* The one that matters: U+1EA0–U+1EF9 is the Vietnamese block. */
+@font-face {
+  font-family: "Source Code Pro";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/source-code-pro-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Source Code Pro";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/source-code-pro-greek.woff2") format("woff2");
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("./fonts/fraunces-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("./fonts/fraunces-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* The heading is Vietnamese too — without this its diacritics fall back as well. */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("./fonts/fraunces-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+:root {
+  --ink: #4a3b34;
+  --ink-strong: #2e2420;
+  --ink-muted: rgba(74, 59, 52, .6);
+  --mono: "Source Code Pro", ui-monospace, monospace;
+  --display: "Fraunces", "Times New Roman", serif;
+  /* max() with the notch insets so nothing sits under a rounded corner or
+     the home indicator once viewport-fit=cover extends us edge to edge.
+     script.js's sidePad() mirrors this exactly — see the probe there. */
+  --pad-x: max(clamp(20px, 5vw, 64px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+  --pad-y: clamp(20px, 5vh, 48px);
+  --pad-bottom: calc(clamp(20px, 5vh, 48px) + env(safe-area-inset-bottom, 0px));
+  --pad-top: calc(clamp(20px, 5vh, 48px) + env(safe-area-inset-top, 0px));
+}
+
+/* ─── Animatable gradient stops ───
+   `background` cannot transition between two gradients, and a plain custom
+   property is an unanimatable token — set one and the gradient snaps. Registering
+   them makes the browser treat each as a real <color>, so it interpolates them
+   and re-rasterises the gradient every frame of the tween.
+   Values are written by paintBackground() in script.js; the initial values here
+   are the Việt Nam palette, matching the default theme. Browsers without
+   @property (pre-Safari 16.4) still get every colour, just snapped rather than
+   tweened — the page is never wrong, only less smooth. */
+@property --bg-core {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fdf5e3;
+}
+@property --bg-mid {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f6c96b;
+}
+@property --bg-edge {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e07c2a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Explicit overflow on the root, which is load-bearing rather than tidy-up.
+   `overflow: hidden` on <body> alone does NOT clip: while <html> is `visible`,
+   the body's value propagates up to the viewport and the body itself computes
+   back to `visible`. So the country-switch slide — #container translated 60vw —
+   was free to extend the scrollable width, measured at 617px inside a 390px
+   phone. A mobile browser answers that by widening the layout viewport to fit,
+   and it does not shrink back: innerWidth went 390 → 718 → 485 and stayed there,
+   so every switch zoomed the page out another notch and taps stopped landing on
+   the buttons. Declaring it here stops the propagation and lets <body> clip its
+   own overflow. */
+html {
+  overflow: hidden;
+  height: 100%;
+}
+
+body {
+  /* Three stops rather than two: the extra mid tone is what lets each country
+     read as its own light rather than as a flat wash, and it gives the tween a
+     middle control point so the bloom sweeps through instead of cross-dissolving. */
+  background: radial-gradient(circle at 50% 32%,
+    var(--bg-core) 0%,
+    var(--bg-mid) 46%,
+    var(--bg-edge) 100%);
+  color: var(--ink);
+  font-family: var(--mono);
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+  /* dvh tracks mobile Safari/Chrome's collapsing URL bar; 100vh there is the
+     *expanded* height, which left the cloth's bottom row cut off below the
+     fold until the user scrolled. Declared second so it simply wins where
+     supported and is ignored where it isn't. */
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  /* `clip` rather than `hidden`: it clips without turning the body into a
+     scroll container, so the slid-out cloth cannot be reached by scrolling or
+     counted as scrollable width. Paired with the root rule above.
+     `hidden` first so a browser without `clip` (pre-Safari 16) still clips —
+     the root rule already stops this value propagating to the viewport. */
+  overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+/* script.js sets width/height inline (layout px) against a device-pixel
+   backing store, so the old auto/max-* sizing here has nothing left to do —
+   and max-width:100vw would have fought the inline value on any browser
+   where 100vw includes the scrollbar gutter. */
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+#container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  transition: transform 800ms cubic-bezier(.45, 0, .55, 1), opacity 800ms ease-in-out;
+}
+
+/* ─── Shared carousel-slide classes — applied to both .roof and #container
+   so the roof and cloth move together on next/prev (see setChimeTheme in
+   script.js). Kept generic instead of scoped to one selector. ─── */
+.slide-out-left,
+.slide-out-right,
+.slide-in-left,
+.slide-in-right {
+  pointer-events: none;
+}
+/* vw, not %: % is relative to each element's own width, and the roof
+   (~500px) and the cloth (near full viewport width) are wildly different
+   sizes — same % moved them at very different absolute speeds, which read
+   as "not sliding together" even though the timing/easing was identical.
+   vw is one shared yardstick (viewport width) so both cover the same
+   physical distance in the same 500ms. */
+.slide-out-left {
+  transform: translateX(-60vw);
+  opacity: 0;
+}
+.slide-out-right {
+  transform: translateX(60vw);
+  opacity: 0;
+}
+/* !important: #container is an ID selector (always wins on specificity)
+   and .roof's own transition rule sits later in this file (wins on equal
+   specificity) — either would otherwise override this transition:none and
+   silently animate the "teleport to the entry side" step itself instead of
+   jumping there instantly, which is what actually caused the incoming
+   roof/cloth to never visibly move (traced via classList add/remove
+   timestamps: both fired ~30ms apart as expected, but nothing rendered
+   in between because there was no real jump to animate away from). */
+.slide-in-left {
+  transform: translateX(-60vw) !important;
+  opacity: 0 !important;
+  transition: none !important;
+}
+.slide-in-right {
+  transform: translateX(60vw) !important;
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+/* ─── Top bar ─── */
+.topbar {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: var(--pad-top) var(--pad-x) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.topbar > * {
+  pointer-events: auto;
+}
+.brand {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: -0.05em;
+  color: var(--ink);
+}
+.credit {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: -0.03em;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+.credit:hover {
+  color: var(--ink-strong);
+  text-decoration-color: var(--ink-strong);
+}
+
+/* ─── Bottom copy ─── */
+.bottom-copy {
+  position: fixed;
+  z-index: 10;
+  left: var(--pad-x);
+  right: var(--pad-x);
+  bottom: var(--pad-bottom);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* --copy-max-w is written by syncCopyWidths() in script.js: in the side
+     layout it is the clear width to the cloth's left edge, so the heading sits
+     beside the cloth rather than under it. Unset in the compact layout, where
+     the fallback applies and the two are separated vertically instead. */
+  max-width: var(--copy-max-w, 520px);
+  pointer-events: auto;
+}
+.eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+.eyebrow strong {
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+.heading h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(24px, 3.4vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+}
+.aside-block {
+  max-width: var(--aside-max-w, 260px);
+  margin-left: auto;
+  text-align: right;
+  pointer-events: auto;
+}
+.aside {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* ─── Roof (per-country), centered above the cloth ─── */
+/* No width here on purpose: syncRoofNav() in script.js writes an inline
+   width (and bottom) every resize and every country switch, derived from the
+   cloth width, the active roof's scale and ROOF_SIZE. An inline style always
+   beats a stylesheet rule, so a width declared here would be dead code that
+   looks like the place to edit. Change ROOF_SIZE instead. */
+.roof-wrap {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  pointer-events: none;
+}
+.roof {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transition: transform 800ms cubic-bezier(.45, 0, .55, 1), opacity 800ms ease-in-out;
+}
+.roof img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.roof-real-img {
+  position: relative;
+  z-index: 2;
+  /* filter: drop-shadow(14px 26px 20px rgba(46, 36, 32, .32)); */
+}
+/* Reference site's shadow.svg, stretched (preserveAspectRatio="none", same
+   as the original) past the roof's own footprint — right and down, toward
+   where the cloth hangs — since it's meant to read as a shadow the roof
+   casts onto the scene, not a shadow shaped like the roof itself. The SVG
+   itself has no blur (it's flat gradient fills, per the source), but the
+   reference composites 4 copies of it at increasing blur amounts to get a
+   soft falloff; blur(16px) on this single layer stands in for that. */
+.roof-shadow-svg {
+  position: absolute;
+  top: 82%;
+  left: 12%;
+  width: 150%;
+  height: 190%;
+  z-index: 1;
+  filter: blur(16px);
+  pointer-events: none;
+  /* .roof-wrap sits at z-index 15 and #container (the canvas) at auto, so
+     this shadow paints *over* the text rather than behind it. Its box is
+     1000x676 — larger than the whole cloth — and the gradients stack to
+     ~0.37 alpha, which was veiling every glyph in brown. Halved: still reads
+     as a cast shadow, no longer fights the text for contrast. */
+  opacity: .5;
+}
+.roof.is-fading {
+  opacity: 0;
+}
+/* Lives on <body> now and sits under the brand, top-left. It used to hang
+   directly beneath the roof image, which put it inside the cloth — it was
+   overlapping the glyphs on every viewport. There is no clear band near the
+   roof to move it to: the roof deliberately presses onto the cloth's top rows,
+   so anything below the image is over text and anything above it runs off the
+   top of the screen on a wide viewport. The top-left corner is the one place
+   that is empty at every size, and it reads as a caption to the brand. */
+.roof-label {
+  display: block;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-strong);
+  /* Pulls it tight under the .heading flex gap so the country and the document
+     it belongs to read as one two-line caption rather than two loose lines. */
+  margin-bottom: -6px;
+}
+
+/* ─── Country selector — flanks the screen edges, previews prev/next ─── */
+/* Wrapper for the two buttons. `display: contents` here means it has no box at
+   all, so in this layout each button still positions itself against the
+   viewport exactly as it always did. The compact media query turns it into a
+   real flex row — see there for why that is the only way to centre the pair. */
+.country-nav {
+  display: contents;
+}
+
+/* The base offset and the hover lift are separate custom properties rather than
+   two competing `transform` declarations. Each layout only has to restate
+   --btn-base, and the hover rule and the touch override compose with it instead
+   of overwriting it — an earlier version had @media (hover: none) reasserting
+   the side layout's translateY(-50%), which on a phone left the tapped button
+   sitting 50% of its own height higher than its neighbour. */
+.country-btn {
+  --btn-base: translateY(-50%);
+  --btn-lift: 0px;
+  position: fixed;
+  top: 50%;
+  transform: var(--btn-base) translateY(var(--btn-lift));
+  z-index: 15;
+  width: 84px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  appearance: none;
+  background: rgba(255, 255, 255, .3);
+  border: 1px dashed rgba(74, 59, 52, .35);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink);
+  transition: transform 200ms ease, background 200ms ease;
+}
+.country-btn:hover {
+  background: rgba(255, 255, 255, .55);
+}
+.country-btn:hover {
+  --btn-lift: -3px;
+}
+.country-btn--left {
+  left: var(--pad-x);
+}
+.country-btn--right {
+  right: var(--pad-x);
+}
+.country-btn__icon {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.country-btn__icon img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.country-btn__label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* ─── Breakpoints ───
+   The widths below are mirrored in script.js (countryBtnWidth) because the
+   roof is sized in JS and has to know how much room the buttons take. Keep
+   the two in sync if either changes. */
+
+/* Small laptops / large tablets: the 520px heading + 260px aside + gap no
+   longer fit side by side, and flex-wrap would drop the aside onto its own
+   full-width line under the heading. Percentages keep them on one row. */
+@media (max-width: 900px) {
+  .heading {
+    max-width: 56%;
+  }
+  .aside-block {
+    max-width: 36%;
+  }
+}
+
+@media (max-width: 760px) {
+  .country-btn {
+    width: 56px;
+    padding: 6px 4px;
+  }
+  .country-btn__label {
+    font-size: 9px;
+  }
+  .roof-label {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .bottom-copy {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .heading {
+    max-width: 100%;
+    gap: 8px;
+  }
+  /* 3.4vw bottoms out at the 24px floor well before this width, so the
+     heading stayed desktop-sized on a 375px screen and ran to six lines,
+     covering most of the cloth. */
+  .heading h1 {
+    font-size: clamp(19px, 5.6vw, 26px);
+  }
+  .aside-block {
+    margin-left: 0;
+    text-align: left;
+    max-width: 100%;
+  }
+  .eyebrow,
+  .aside {
+    font-size: 11px;
+  }
+  .aside {
+    line-height: 1.45;
+  }
+  .brand {
+    font-size: 12px;
+  }
+  .credit {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .country-btn {
+    width: 44px;
+    padding: 5px 3px;
+    gap: 4px;
+  }
+  .country-btn__label {
+    font-size: 8px;
+  }
+  /* The attribution is the least important thing on screen and the only
+     element competing with the brand for a ~330px-wide topbar. */
+  .credit {
+    display: none;
+  }
+}
+
+/* Below ~340px there is genuinely not enough height for the button row, the
+   roof, the cloth and four blocks of copy at once — the cloth gets squeezed
+   until it runs into the text. The instruction line is the least essential
+   thing on screen, so it is what gives way; everything else keeps its spacing
+   and nothing overlaps. */
+@media (max-width: 340px) {
+  .aside-block {
+    display: none;
+  }
+}
+
+/* Landscape phones. Height, not width, is the scarce axis here: the roof
+   and cloth together need most of it, so the copy has to give ground.
+   script.js applies its own vh < 520 branch to match. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .bottom-copy {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 16px;
+  }
+  .heading {
+    max-width: 46%;
+    gap: 6px;
+  }
+  .heading h1 {
+    font-size: clamp(16px, 2.6vw, 24px);
+  }
+  .aside-block {
+    max-width: 30%;
+    margin-left: auto;
+    text-align: right;
+  }
+  .eyebrow,
+  .aside {
+    font-size: 10px;
+  }
+  .aside {
+    line-height: 1.4;
+  }
+}
+
+/* ─── Compact layout: tablet width and below ───
+   The two country buttons lift out of the side margins and become a centred
+   pair at the top, which hands the full width back to the roof and cloth —
+   script.js widens both to suit (CLOTH_W_RATIO_COMPACT) and drops the buttons
+   out of its roof-width budget.
+
+   The min-height gate matters: a phone held landscape is under 1024px wide but
+   only ~390px tall, and a button row at the top would land straight on the
+   roof. Those keep the side arrangement. isCompact() in script.js mirrors both
+   halves of this query — change one and you must change the other. */
+@media (max-width: 1024px) and (min-height: 600px) {
+  /* The wrapper becomes the positioned element and the buttons become ordinary
+     flex children. Centring the row this way is exact, where offsetting each
+     button by its own width was not: "Pháp" and "Trung Quốc" differ by 35px, so
+     the pair drifted up to 12px off centre as the visitor moved through the
+     countries. */
+  .country-nav {
+    display: flex;
+    position: fixed;
+    /* Its own line, below the brand. The row is centred and sized by its two
+       country names, so on a 360px screen "Trung Quốc" grew it wide enough to
+       reach the brand in the corner — and which names are showing changes as
+       the visitor moves through the countries, so it collided intermittently.
+       Dropping it a line removes the competition outright. */
+    top: calc(var(--pad-top) + 24px);
+    left: 0;
+    right: 0;
+    z-index: 15;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;   /* only the buttons themselves are targets */
+  }
+  .country-btn {
+    position: static;
+    --btn-base: translateX(0);
+    pointer-events: auto;
+    /* Sized to its content: a horizontal icon + label needs whatever the
+       longest country name measures, and the side layout's fixed 84px pushed
+       the label straight out of the dashed frame. */
+    width: auto;
+    flex-direction: row;
+    gap: 8px;
+    padding: 7px 11px;
+  }
+  .country-btn__icon {
+    width: 26px;
+    flex: none;
+  }
+  .country-btn__label {
+    font-size: 10px;
+  }
+  /* The attribution shares the top strip with the buttons and loses. */
+  .credit {
+    display: none;
+  }
+}
+
+/* !important so it beats the inline transition paintBackground() writes on
+   body — an inline declaration without !important loses to this. */
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition-duration: 1ms !important;
+  }
+  .roof,
+  #container,
+  .roof-wrap {
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Hover styles fire on tap on touch devices and then stick until the next
+   tap elsewhere, leaving a button visibly nudged up for no reason. */
+@media (hover: none) {
+  /* Cancels the lift only. It must not restate `transform`, or it would undo
+     whatever base offset the current layout depends on. */
+  .country-btn:hover {
+    --btn-lift: 0px;
+    background: rgba(255, 255, 255, .3);
+  }
+}
