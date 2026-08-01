@@ -167,6 +167,15 @@ const BG_BLOOM_MS = 800;
 const BG_SETTLE_MS = 700;
 const BG_FADE_MS = 420;   // the no-direction path, which only cross-fades the roof
 
+// iOS Safari tints its own toolbar with <meta name="theme-color">, which sits
+// outside the document and can't pick up the body's gradient. Left at a fixed
+// value it was a flat #ffa100 that matched none of the five palettes below —
+// on Hy Lạp's blue or Pháp's lavender scene the top of the screen still read
+// as Việt Nam's orange. Synced to each palette's mid stop (the tone that
+// "carries the identity" per the comment above) so Safari's chrome tracks
+// whichever country is on screen.
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
 function paintBackground(palette, ms, easing = 'cubic-bezier(.32,0,.22,1)') {
   const s = document.body.style;
   s.transitionProperty = '--bg-core, --bg-mid, --bg-edge';
@@ -175,6 +184,7 @@ function paintBackground(palette, ms, easing = 'cubic-bezier(.32,0,.22,1)') {
   s.setProperty('--bg-core', palette.core);
   s.setProperty('--bg-mid', palette.mid);
   s.setProperty('--bg-edge', palette.edge);
+  if (themeColorMeta) themeColorMeta.setAttribute('content', palette.mid);
 }
 
 // Cache-buster for the roof PNGs. Unlike style.css and script.js these are
