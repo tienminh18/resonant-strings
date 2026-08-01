@@ -1330,7 +1330,18 @@ class Input {
   }
   pointerdown(e) {
     ensureAudio();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // resume() is async and on mobile the context always starts 'suspended',
+    // so the ringChime() below used to fire in the same synchronous tick as
+    // the resume() call — audioCtx.state was still 'suspended' at that exact
+    // line (it only flips once the promise settles a tick later), and
+    // playChime() bails out whenever state isn't 'running'. That silently
+    // dropped the very first chime of every session: the one touch a visitor
+    // is most likely to make and judge the whole page by. Desktop rarely
+    // showed it because those browsers often resolve resume() same-tick or
+    // never suspend a gesture-created context in the first place. Chaining
+    // the chime onto the resume promise (already-running short-circuits to
+    // it immediately) makes the first touch audible instead of the second.
+    const audioReady = audioCtx.state === 'running' ? Promise.resolve() : audioCtx.resume();
 
     // window.inner*, not c.width/c.height: those are the device-pixel
     // backing store now, and e.clientX/Y are layout pixels — mixing them
@@ -1345,7 +1356,7 @@ class Input {
         this.grabbedParticle = p;
         p.originalPinnedState = p.pinned;
         p.pinned = true;
-        if (p.char && p.char !== ' ') this.ringChime(p);
+        if (p.char && p.char !== ' ') audioReady.then(() => this.ringChime(p));
         break;
       }
     }
