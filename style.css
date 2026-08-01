@@ -190,6 +190,39 @@ canvas {
   touch-action: none;
 }
 
+/* ─── Top fade — bridges the toolbar seam ───
+   iOS Safari tints its own toolbar with <meta name="theme-color"> (kept live
+   by trackThemeColor() in script.js), but that tag only ever holds one flat
+   colour. The page's own background is a *radial* gradient centred at 50%
+   32%, so the colour actually rendered at the top edge is not constant along
+   it: top-centre sits close to the --bg-mid stop (near where the toolbar
+   colour is sampled from), but the top corners are measurably further from
+   the centre and read closer to --bg-edge — a flat toolbar colour lines up
+   with the middle of the strip and visibly breaks from the page at its
+   corners. No amount of timing fixes that; a solid swatch can't track a
+   gradient.
+   So instead of matching the seam, this hides it: a band the same colour as
+   the toolbar (var(--bg-mid), the exact value the meta tag is chasing) caps
+   the top of the page and melts to transparent, turning a hard cut between
+   two different colours into a soft one between two shades of the same
+   colour. Sits below the roof art (z-index 15) so it fills the empty
+   corners without washing out the roof itself, and above the plain canvas
+   background so it actually has something to blend over. No JS needed to
+   animate it: --bg-mid is a registered @property already being tweened on
+   body by paintBackground(), and this reads that same live value every
+   frame for free through inheritance. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 28px);
+  background: linear-gradient(to bottom, var(--bg-mid), transparent);
+  pointer-events: none;
+  z-index: 12;
+}
+
 #container {
   position: relative;
   display: flex;
