@@ -91,6 +91,20 @@ function ensureAudio() {
   applyThemeFilter();
   masterGain.connect(shelfFilter);
   shelfFilter.connect(audioCtx.destination);
+
+  // iOS's actual unlock condition isn't "resume() was called", it's "a sound
+  // was started while the context's state flipped inside a genuine user
+  // gesture" — some WebKit versions leave hardware output gated even after
+  // resume() reports success if nothing was ever actually started. A single
+  // silent, one-sample buffer played straight to destination (bypassing the
+  // gain graph entirely, so it can never be heard even if this ever ran
+  // outside a gesture) is the standard trick Howler/Tone.js rely on: it's
+  // real playback, not just a state change, so it satisfies whatever the
+  // stricter unlock check is actually looking for.
+  const unlockSource = audioCtx.createBufferSource();
+  unlockSource.buffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+  unlockSource.connect(audioCtx.destination);
+  unlockSource.start(0);
 }
 
 function applyThemeFilter() {
@@ -1341,7 +1355,7 @@ class Input {
     // never suspend a gesture-created context in the first place. Chaining
     // the chime onto the resume promise (already-running short-circuits to
     // it immediately) makes the first touch audible instead of the second.
-    const audioReady = audioCtx.state === 'running' ? Promise.resolve() : audioCtx.resume();
+    const audioReady = audioCtx.state === 'running' ? Promise.resolve() : audioCtx.resume().catch(() => {});
 
     // window.inner*, not c.width/c.height: those are the device-pixel
     // backing store now, and e.clientX/Y are layout pixels — mixing them
